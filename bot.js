@@ -2,10 +2,23 @@ const { Client } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const fs = require('fs');
 
-const client = new Client();
+const client = new Client({
+  puppeteer: {
+    headless: true,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-accelerated-2d-canvas',
+      '--no-first-run',
+      '--no-zygote',
+      '--disable-gpu'
+    ]
+  }
+});
 
 client.on('qr', qr => {
-    qrcode.generate(qr, {small:true});
+    qrcode.generate(qr, { small: true });
 });
 
 client.on('ready', () => {
@@ -14,30 +27,31 @@ client.on('ready', () => {
 
 client.on('message', message => {
 
-    if(message.fromMe) return;
+    if (message.fromMe) return;
 
     const texto = message.body.toLowerCase();
     const usuario = message.from;
 
     let banco = {};
 
-    if(fs.existsSync("gastos.json")){
+    if (fs.existsSync("gastos.json")) {
         banco = JSON.parse(fs.readFileSync("gastos.json"));
     }
 
-    if(!banco[usuario]){
+    if (!banco[usuario]) {
         banco[usuario] = [];
     }
 
-    if(texto === "oi"){
+    if (texto === "oi") {
         message.reply("👋 Envie um gasto assim:\n\nmercado 40\nuber 18\n\nOu digite RESUMO");
+        return;
     }
 
-    if(texto === "resumo"){
+    if (texto === "resumo") {
 
         const gastos = banco[usuario];
 
-        if(gastos.length === 0){
+        if (gastos.length === 0) {
             message.reply("Você ainda não registrou gastos.");
             return;
         }
@@ -59,7 +73,7 @@ client.on('message', message => {
     const regex = /([a-zA-Z]+)\s(\d+)/;
     const match = texto.match(regex);
 
-    if(match){
+    if (match) {
 
         const descricao = match[1];
         const valor = parseFloat(match[2]);
@@ -69,7 +83,7 @@ client.on('message', message => {
             valor
         });
 
-        fs.writeFileSync("gastos.json", JSON.stringify(banco,null,2));
+        fs.writeFileSync("gastos.json", JSON.stringify(banco, null, 2));
 
         message.reply(`✅ Gasto salvo\n\n${descricao}\nR$${valor}`);
     }
