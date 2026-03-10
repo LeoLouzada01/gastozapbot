@@ -8,13 +8,57 @@ const client = new Client({
   }
 });
 
+let gastos = [];
+
 client.on('qr', qr => {
-  console.log('QR RECEIVED');
+  console.log("QR RECEIVED");
   qrcode.generate(qr, { small: true });
 });
 
 client.on('ready', () => {
   console.log('Bot conectado!');
+});
+
+client.on('message', msg => {
+
+  const texto = msg.body.toLowerCase();
+
+  if (texto.startsWith('/gasto')) {
+
+    const partes = texto.split(' ');
+    const valor = parseFloat(partes[1]);
+    const categoria = partes.slice(2).join(' ');
+
+    gastos.push({
+      valor,
+      categoria,
+      data: new Date()
+    });
+
+    msg.reply(`✅ Gasto registrado\n💰 R$${valor}\n📂 ${categoria}`);
+  }
+
+  if (texto === '/saldo') {
+
+    const total = gastos.reduce((soma, g) => soma + g.valor, 0);
+
+    msg.reply(`💰 Total gasto: R$${total}`);
+  }
+
+  if (texto === '/ajuda') {
+
+    msg.reply(
+`📊 *GastoZap comandos*
+
+/gasto 50 gasolina
+/gasto 30 almoço
+
+/saldo
+/ajuda`
+    );
+
+  }
+
 });
 
 client.initialize();
