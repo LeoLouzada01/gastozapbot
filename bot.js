@@ -110,3 +110,5 @@ client.on('message', async msg => {
 });
 
 client.initialize();
+// detectar gasto por texto
+const regexGasto = /(\d+)\s*(.*)/;
