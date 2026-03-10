@@ -1,11 +1,18 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const fs = require('fs');
-const OpenAI = require("openai");
+const sqlite3 = require('sqlite3').verbose();
 
-const openai = new OpenAI({
- apiKey: process.env.OPENAI_API_KEY
-});
+const db = new sqlite3.Database('./gastos.db');
+
+db.run(`
+CREATE TABLE IF NOT EXISTS gastos (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ valor REAL,
+ categoria TEXT,
+ data TEXT
+)
+`);
 
 const client = new Client({
  authStrategy: new LocalAuth(),
@@ -13,8 +20,6 @@ const client = new Client({
   args: ['--no-sandbox', '--disable-setuid-sandbox']
  }
 });
-
-let gastos = [];
 
 client.on('qr', qr => {
  console.log("QR RECEIVED");
@@ -25,43 +30,9 @@ client.on('ready', () => {
  console.log('Bot conectado!');
 });
 
-async function transcreverAudio() {
-
- const transcription = await openai.audio.transcriptions.create({
-  file: fs.createReadStream("audio.ogg"),
-  model: "whisper-1"
- });
-
- return transcription.text;
-}
-
 client.on('message', async msg => {
 
  const texto = msg.body ? msg.body.toLowerCase() : "";
-
- // comando gasto
- if (texto.startsWith('/gasto')) {
-
-  const partes = texto.split(' ');
-  const valor = parseFloat(partes[1]);
-  const categoria = partes.slice(2).join(' ');
-
-  gastos.push({
-   valor,
-   categoria,
-   data: new Date()
-  });
-
-  msg.reply(`✅ Gasto registrado\n💰 R$${valor}\n📂 ${categoria}`);
- }
-
- // comando saldo
- if (texto === '/saldo') {
-
-  const total = gastos.reduce((soma, g) => soma + g.valor, 0);
-
-  msg.reply(`💰 Total gasto: R$${total}`);
- }
 
  // comando ajuda
  if (texto === '/ajuda') {
@@ -69,46 +40,60 @@ client.on('message', async msg => {
   msg.reply(
 `📊 *GastoZap comandos*
 
-/gasto 50 gasolina
-/gasto 30 almoço
+Envie apenas:
+
+50 gasolina
+30 almoço
+20 uber
+
+Comandos:
 
 /saldo
-/ajuda
-
-🎤 envie áudio dizendo:
-"gastei 20 no mercado"`
+/ajuda`
   );
+
+  return;
  }
 
- // detectar audio
- if (msg.hasMedia && msg.type === "ptt") {
+ // comando saldo
+ if (texto === '/saldo') {
 
-  const media = await msg.downloadMedia();
+  db.get(
+   "SELECT SUM(valor) as total FROM gastos",
+   [],
+   (err, row) => {
 
-  const buffer = Buffer.from(media.data, 'base64');
+    if (row && row.total) {
+     msg.reply(`💰 Total gasto: R$${row.total}`);
+    } else {
+     msg.reply("💰 Nenhum gasto registrado.");
+    }
 
-  fs.writeFileSync("audio.ogg", buffer);
+   }
+  );
 
-  msg.reply("🎤 Processando áudio...");
+  return;
+ }
 
-  try {
+ // detectar gasto por texto
+ const regexGasto = /(\d+)\s*(.*)/;
 
-   const textoAudio = await transcreverAudio();
+ if (regexGasto.test(texto)) {
 
-   msg.reply("📝 Você disse: " + textoAudio);
+  const match = texto.match(regexGasto);
 
-  } catch (erro) {
+  const valor = parseFloat(match[1]);
+  const categoria = match[2] || "outros";
 
-   console.log(erro);
+  db.run(
+   "INSERT INTO gastos (valor, categoria, data) VALUES (?, ?, ?)",
+   [valor, categoria, new Date().toISOString()]
+  );
 
-   msg.reply("❌ erro ao processar áudio");
-
-  }
+  msg.reply(`✅ Gasto registrado\n💰 R$${valor}\n📂 ${categoria}`);
 
  }
 
 });
 
 client.initialize();
-// detectar gasto por texto
-const regexGasto = /(\d+)\s*(.*)/;
