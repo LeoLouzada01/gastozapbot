@@ -62,3 +62,5 @@ client.on('message', msg => {
 });
 
 client.initialize();
+const fs = require('fs');
+const ffmpeg = require('ffmpeg-static');
