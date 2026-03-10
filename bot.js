@@ -1,6 +1,5 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
-const fs = require('fs');
 const sqlite3 = require('sqlite3').verbose();
 
 const db = new sqlite3.Database('./gastos.db');
@@ -30,32 +29,33 @@ client.on('ready', () => {
  console.log('Bot conectado!');
 });
 
-client.on('message', async msg => {
+client.on('message', msg => {
 
  const texto = msg.body ? msg.body.toLowerCase() : "";
 
- // comando ajuda
+ // ajuda
  if (texto === '/ajuda') {
 
   msg.reply(
-`📊 *GastoZap comandos*
+`📊 *GastoZap*
 
-Envie apenas:
-
+Envie:
 50 gasolina
 30 almoço
-20 uber
 
 Comandos:
 
 /saldo
+/hoje
+/mes
+/lista
 /ajuda`
   );
 
   return;
  }
 
- // comando saldo
+ // saldo total
  if (texto === '/saldo') {
 
   db.get(
@@ -75,7 +75,78 @@ Comandos:
   return;
  }
 
- // detectar gasto por texto
+ // gastos de hoje
+ if (texto === '/hoje') {
+
+  const hoje = new Date().toISOString().split("T")[0];
+
+  db.get(
+   "SELECT SUM(valor) as total FROM gastos WHERE date(data) = ?",
+   [hoje],
+   (err, row) => {
+
+    if (row && row.total) {
+     msg.reply(`📅 Gastos de hoje: R$${row.total}`);
+    } else {
+     msg.reply("📅 Nenhum gasto hoje.");
+    }
+
+   }
+  );
+
+  return;
+ }
+
+ // gastos do mes
+ if (texto === '/mes') {
+
+  const mes = new Date().toISOString().slice(0,7);
+
+  db.get(
+   "SELECT SUM(valor) as total FROM gastos WHERE substr(data,1,7) = ?",
+   [mes],
+   (err, row) => {
+
+    if (row && row.total) {
+     msg.reply(`📊 Total do mês: R$${row.total}`);
+    } else {
+     msg.reply("📊 Nenhum gasto este mês.");
+    }
+
+   }
+  );
+
+  return;
+ }
+
+ // lista ultimos gastos
+ if (texto === '/lista') {
+
+  db.all(
+   "SELECT valor, categoria FROM gastos ORDER BY id DESC LIMIT 5",
+   [],
+   (err, rows) => {
+
+    if (!rows.length) {
+     msg.reply("📜 Nenhum gasto registrado.");
+     return;
+    }
+
+    let resposta = "📜 Últimos gastos\n\n";
+
+    rows.forEach(g => {
+     resposta += `R$${g.valor} - ${g.categoria}\n`;
+    });
+
+    msg.reply(resposta);
+
+   }
+  );
+
+  return;
+ }
+
+ // detectar gasto
  const regexGasto = /(\d+)\s*(.*)/;
 
  if (regexGasto.test(texto)) {
