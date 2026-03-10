@@ -21,27 +21,28 @@ const client = new Client({
 });
 
 client.on('qr', qr => {
- console.log("QR RECEIVED");
  qrcode.generate(qr, { small: true });
 });
 
 client.on('ready', () => {
- console.log('Bot conectado!');
+ console.log("✅ Bot conectado");
 });
 
 client.on('message', msg => {
 
  const texto = msg.body ? msg.body.toLowerCase() : "";
 
- // ajuda
- if (texto === '/ajuda') {
+ // AJUDA
+ if (texto === "/ajuda") {
 
   msg.reply(
-`📊 *GastoZap*
+`📊 GastoZap
 
-Envie:
-50 gasolina
-30 almoço
+Registrar gasto:
+40 gasolina
+
+Ou comando:
+/add 40 gasolina
 
 Comandos:
 
@@ -55,8 +56,31 @@ Comandos:
   return;
  }
 
- // saldo total
- if (texto === '/saldo') {
+ // COMANDO ADD
+ if (texto.startsWith("/add")) {
+
+  const partes = texto.split(" ");
+
+  const valor = parseFloat(partes[1]);
+  const categoria = partes.slice(2).join(" ") || "outros";
+
+  if (!valor) {
+   msg.reply("❌ Use: /add 40 gasolina");
+   return;
+  }
+
+  db.run(
+   "INSERT INTO gastos (valor, categoria, data) VALUES (?, ?, ?)",
+   [valor, categoria, new Date().toISOString()]
+  );
+
+  msg.reply(`✅ Gasto registrado\n💰 R$${valor}\n📂 ${categoria}`);
+
+  return;
+ }
+
+ // SALDO
+ if (texto === "/saldo") {
 
   db.get(
    "SELECT SUM(valor) as total FROM gastos",
@@ -75,8 +99,8 @@ Comandos:
   return;
  }
 
- // gastos de hoje
- if (texto === '/hoje') {
+ // HOJE
+ if (texto === "/hoje") {
 
   const hoje = new Date().toISOString().split("T")[0];
 
@@ -97,8 +121,8 @@ Comandos:
   return;
  }
 
- // gastos do mes
- if (texto === '/mes') {
+ // MES
+ if (texto === "/mes") {
 
   const mes = new Date().toISOString().slice(0,7);
 
@@ -119,8 +143,8 @@ Comandos:
   return;
  }
 
- // lista ultimos gastos
- if (texto === '/lista') {
+ // LISTA
+ if (texto === "/lista") {
 
   db.all(
    "SELECT valor, categoria FROM gastos ORDER BY id DESC LIMIT 5",
@@ -135,7 +159,7 @@ Comandos:
     let resposta = "📜 Últimos gastos\n\n";
 
     rows.forEach(g => {
-     resposta += `R$${g.valor} - ${g.categoria}\n`;
+     resposta += `💰 R$${g.valor} - ${g.categoria}\n`;
     });
 
     msg.reply(resposta);
@@ -146,22 +170,30 @@ Comandos:
   return;
  }
 
- // detectar gasto
- const regexGasto = /(\d+)\s*(.*)/;
+ // MULTIPLOS GASTOS NA MESMA FRASE
+ const regex = /(\d+)\s*(?:no|em)?\s*([a-zA-Z]+)/g;
 
- if (regexGasto.test(texto)) {
+ const encontrados = [...texto.matchAll(regex)];
 
-  const match = texto.match(regexGasto);
+ if (encontrados.length > 0) {
 
-  const valor = parseFloat(match[1]);
-  const categoria = match[2] || "outros";
+  let resposta = "✅ Gastos registrados\n\n";
 
-  db.run(
-   "INSERT INTO gastos (valor, categoria, data) VALUES (?, ?, ?)",
-   [valor, categoria, new Date().toISOString()]
-  );
+  encontrados.forEach(g => {
 
-  msg.reply(`✅ Gasto registrado\n💰 R$${valor}\n📂 ${categoria}`);
+   const valor = parseFloat(g[1]);
+   const categoria = g[2];
+
+   db.run(
+    "INSERT INTO gastos (valor, categoria, data) VALUES (?, ?, ?)",
+    [valor, categoria, new Date().toISOString()]
+   );
+
+   resposta += `💰 R$${valor} - ${categoria}\n`;
+
+  });
+
+  msg.reply(resposta);
 
  }
 
