@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y \
   libxdamage1 \
   libxrandr2 \
   libgbm1 \
-  libasound2t64 \
+  libasound2 \
   ca-certificates \
   fonts-liberation \
   libappindicator3-1 \
