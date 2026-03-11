@@ -4,7 +4,7 @@
   "description": "Bot financeiro WhatsApp + painel web",
   "main": "bot.js",
   "scripts": {
-    "start": "node start.js"
+    "start": "node server.js"
   },
   "keywords": [],
   "author": "",
