@@ -16,184 +16,46 @@ CREATE TABLE IF NOT EXISTS gastos (
 const client = new Client({
  authStrategy: new LocalAuth(),
  puppeteer: {
-  args: ['--no-sandbox', '--disable-setuid-sandbox']
+  args: ['--no-sandbox','--disable-setuid-sandbox']
  }
 });
 
 client.on('qr', qr => {
- qrcode.generate(qr, { small: true });
+ qrcode.generate(qr,{small:true});
 });
 
 client.on('ready', () => {
- console.log("✅ Bot conectado");
+ console.log("BOT ONLINE");
 });
 
 client.on('message', msg => {
 
- const texto = msg.body ? msg.body.toLowerCase() : "";
+ const texto = msg.body.toLowerCase();
 
- // AJUDA
- if (texto === "/ajuda") {
+ if(texto === "/saldo"){
 
-  msg.reply(
-`📊 GastoZap
-
-Registrar gasto:
-40 gasolina
-
-Ou comando:
-/add 40 gasolina
-
-Comandos:
-
-/saldo
-/hoje
-/mes
-/lista
-/ajuda`
+  db.get(
+   "SELECT SUM(valor) as total FROM gastos",
+   (err,row)=>{
+    msg.reply("💰 Total: R$ "+(row.total||0));
+   }
   );
 
-  return;
  }
 
- // COMANDO ADD
- if (texto.startsWith("/add")) {
+ if(texto.startsWith("/add")){
 
   const partes = texto.split(" ");
 
   const valor = parseFloat(partes[1]);
-  const categoria = partes.slice(2).join(" ") || "outros";
-
-  if (!valor) {
-   msg.reply("❌ Use: /add 40 gasolina");
-   return;
-  }
+  const categoria = partes.slice(2).join(" ");
 
   db.run(
-   "INSERT INTO gastos (valor, categoria, data) VALUES (?, ?, ?)",
-   [valor, categoria, new Date().toISOString()]
+   "INSERT INTO gastos(valor,categoria,data) VALUES(?,?,?)",
+   [valor,categoria,new Date().toISOString()]
   );
 
-  msg.reply(`✅ Gasto registrado\n💰 R$${valor}\n📂 ${categoria}`);
-
-  return;
- }
-
- // SALDO
- if (texto === "/saldo") {
-
-  db.get(
-   "SELECT SUM(valor) as total FROM gastos",
-   [],
-   (err, row) => {
-
-    if (row && row.total) {
-     msg.reply(`💰 Total gasto: R$${row.total}`);
-    } else {
-     msg.reply("💰 Nenhum gasto registrado.");
-    }
-
-   }
-  );
-
-  return;
- }
-
- // HOJE
- if (texto === "/hoje") {
-
-  const hoje = new Date().toISOString().split("T")[0];
-
-  db.get(
-   "SELECT SUM(valor) as total FROM gastos WHERE date(data) = ?",
-   [hoje],
-   (err, row) => {
-
-    if (row && row.total) {
-     msg.reply(`📅 Gastos de hoje: R$${row.total}`);
-    } else {
-     msg.reply("📅 Nenhum gasto hoje.");
-    }
-
-   }
-  );
-
-  return;
- }
-
- // MES
- if (texto === "/mes") {
-
-  const mes = new Date().toISOString().slice(0,7);
-
-  db.get(
-   "SELECT SUM(valor) as total FROM gastos WHERE substr(data,1,7) = ?",
-   [mes],
-   (err, row) => {
-
-    if (row && row.total) {
-     msg.reply(`📊 Total do mês: R$${row.total}`);
-    } else {
-     msg.reply("📊 Nenhum gasto este mês.");
-    }
-
-   }
-  );
-
-  return;
- }
-
- // LISTA
- if (texto === "/lista") {
-
-  db.all(
-   "SELECT valor, categoria FROM gastos ORDER BY id DESC LIMIT 5",
-   [],
-   (err, rows) => {
-
-    if (!rows.length) {
-     msg.reply("📜 Nenhum gasto registrado.");
-     return;
-    }
-
-    let resposta = "📜 Últimos gastos\n\n";
-
-    rows.forEach(g => {
-     resposta += `💰 R$${g.valor} - ${g.categoria}\n`;
-    });
-
-    msg.reply(resposta);
-
-   }
-  );
-
-  return;
- }
-
- // MULTIPLOS GASTOS NA MESMA FRASE
- const regex = /(\d+)\s*(?:no|em)?\s*([a-zA-Z]+)/g;
-
- const encontrados = [...texto.matchAll(regex)];
-
- if (encontrados.length > 0) {
-
-  let resposta = "✅ Gastos registrados\n\n";
-
-  encontrados.forEach(g => {
-
-   const valor = parseFloat(g[1]);
-   const categoria = g[2];
-
-   db.run(
-    "INSERT INTO gastos (valor, categoria, data) VALUES (?, ?, ?)",
-    [valor, categoria, new Date().toISOString()]
-   );
-
-   resposta += `💰 R$${valor} - ${categoria}\n`;
-
-  });
-
-  msg.reply(resposta);
+  msg.reply("✅ Gasto registrado");
 
  }
 

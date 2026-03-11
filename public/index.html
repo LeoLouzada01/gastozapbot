@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+
+<meta charset="UTF-8">
+<title>GastoZap Dashboard</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+
+body{
+ font-family: Arial, sans-serif;
+ background:#2b0a3d;
+ color:white;
+ margin:0;
+ padding:30px;
+}
+
+.container{
+ max-width:1000px;
+ margin:auto;
+}
+
+h1{
+ font-size:32px;
+ margin-bottom:20px;
+}
+
+.cards{
+ display:flex;
+ gap:20px;
+ margin-bottom:30px;
+}
+
+.card{
+ background:#3b0f55;
+ padding:20px;
+ border-radius:12px;
+ flex:1;
+}
+
+.card h2{
+ margin:0;
+ font-size:18px;
+ color:#caa9ff;
+}
+
+.card p{
+ font-size:28px;
+ margin-top:10px;
+}
+
+.form{
+ background:#3b0f55;
+ padding:20px;
+ border-radius:12px;
+ margin-bottom:30px;
+}
+
+input{
+ padding:10px;
+ border:none;
+ border-radius:6px;
+ margin-right:10px;
+}
+
+button{
+ background:#8a05be;
+ color:white;
+ border:none;
+ padding:10px 15px;
+ border-radius:6px;
+ cursor:pointer;
+}
+
+button:hover{
+ background:#a020f0;
+}
+
+.lista{
+ background:#3b0f55;
+ padding:20px;
+ border-radius:12px;
+}
+
+li{
+ margin-bottom:8px;
+}
+
+canvas{
+ background:white;
+ border-radius:10px;
+ margin-top:20px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>💸 GastoZap</h1>
+
+<div class="cards">
+
+<div class="card">
+<h2>Total gasto</h2>
+<p id="saldo">R$ 0</p>
+</div>
+
+<div class="card">
+<h2>Quantidade de gastos</h2>
+<p id="qtd">0</p>
+</div>
+
+</div>
+
+<div class="form">
+
+<h2>Adicionar gasto</h2>
+
+<input id="valor" placeholder="valor">
+
+<input id="categoria" placeholder="categoria">
+
+<button onclick="add()">Adicionar</button>
+
+</div>
+
+<div class="lista">
+
+<h2>Últimos gastos</h2>
+
+<ul id="lista"></ul>
+
+</div>
+
+<canvas id="grafico"></canvas>
+
+</div>
+
+<script>
+
+let chart;
+
+async function carregar(){
+
+ const saldo = await fetch("/api/saldo").then(r=>r.json());
+
+ document.getElementById("saldo").innerText =
+ "R$ " + (saldo.total || 0);
+
+ const gastos = await fetch("/api/gastos").then(r=>r.json());
+
+ document.getElementById("qtd").innerText = gastos.length;
+
+ const lista = document.getElementById("lista");
+
+ lista.innerHTML="";
+
+ const categorias = {};
+ 
+ gastos.forEach(g=>{
+
+  const li=document.createElement("li");
+
+  li.innerText="R$ "+g.valor+" - "+g.categoria;
+
+  lista.appendChild(li);
+
+  if(!categorias[g.categoria]){
+   categorias[g.categoria]=0;
+  }
+
+  categorias[g.categoria]+=g.valor;
+
+ });
+
+ atualizarGrafico(categorias);
+
+}
+
+async function add(){
+
+ const valor=document.getElementById("valor").value;
+ const categoria=document.getElementById("categoria").value;
+
+ await fetch("/api/add",{
+
+  method:"POST",
+  headers:{"Content-Type":"application/json"},
+  body:JSON.stringify({valor,categoria})
+
+ });
+
+ carregar();
+
+}
+
+function atualizarGrafico(categorias){
+
+ const labels=Object.keys(categorias);
+ const valores=Object.values(categorias);
+
+ const ctx=document.getElementById("grafico");
+
+ if(chart){
+  chart.destroy();
+ }
+
+ chart=new Chart(ctx,{
+  type:"doughnut",
+  data:{
+   labels:labels,
+   datasets:[{
+    data:valores
+   }]
+  }
+ });
+
+}
+
+carregar();
+
+</script>
+
+</body>
+
+</html>
