@@ -1,10 +1,10 @@
 {
   "name": "gastozap",
   "version": "1.0.0",
-  "description": "",
+  "description": "Bot financeiro WhatsApp + painel web",
   "main": "bot.js",
   "scripts": {
-    "start": "node bot.js"
+    "start": "node start.js"
   },
   "keywords": [],
   "author": "",

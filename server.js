@@ -1,96 +1,66 @@
-const express = require("express");
-const sqlite3 = require("sqlite3").verbose();
-const { Client, LocalAuth } = require('whatsapp-web.js');
-const qrcode = require('qrcode-terminal');
+const express = require("express")
+const sqlite3 = require("sqlite3").verbose()
+const path = require("path")
 
-const app = express();
-app.use(express.json());
-app.use(express.static("public"));
+const app = express()
 
-const db = new sqlite3.Database("./gastos.db");
+app.use(express.json())
+app.use(express.static("public"))
+
+const db = new sqlite3.Database("./gastos.db")
+
+db.serialize(()=>{
 
 db.run(`
-CREATE TABLE IF NOT EXISTS gastos (
+CREATE TABLE IF NOT EXISTS gastos(
  id INTEGER PRIMARY KEY AUTOINCREMENT,
+ descricao TEXT,
  valor REAL,
- categoria TEXT,
  data TEXT
 )
-`);
+`)
+
+})
+
+app.get("/",(req,res)=>{
+ res.send("GastoZap Online 🚀")
+})
 
 app.get("/api/gastos",(req,res)=>{
- db.all("SELECT * FROM gastos ORDER BY id DESC",(err,rows)=>{
-  res.json(rows);
- });
-});
 
-app.get("/api/saldo",(req,res)=>{
- db.get("SELECT SUM(valor) as total FROM gastos",(err,row)=>{
-  res.json(row);
- });
-});
+db.all("SELECT * FROM gastos",(err,rows)=>{
 
-app.post("/api/add",(req,res)=>{
- const {valor,categoria}=req.body;
-
- db.run(
-  "INSERT INTO gastos(valor,categoria,data) VALUES(?,?,?)",
-  [valor,categoria,new Date().toISOString()]
- );
-
- res.json({ok:true});
-});
-
-app.listen(3000,()=>{
- console.log("Painel rodando porta 3000");
-});
-
-const client = new Client({
- authStrategy: new LocalAuth(),
- puppeteer:{
-  args:['--no-sandbox','--disable-setuid-sandbox']
- }
-});
-
-client.on('qr', qr=>{
- qrcode.generate(qr,{small:true});
-});
-
-client.on('ready',()=>{
- console.log("BOT WHATSAPP ONLINE");
-});
-
-client.on('message', msg=>{
-
- const texto = msg.body.toLowerCase();
-
- if(texto === "/saldo"){
-
-  db.get(
-   "SELECT SUM(valor) as total FROM gastos",
-   (err,row)=>{
-    msg.reply("💰 Total: R$ "+(row.total||0));
-   }
-  );
-
+ if(err){
+  res.json({erro:err})
+ }else{
+  res.json(rows)
  }
 
- if(texto.startsWith("/add")){
+})
 
-  const partes = texto.split(" ");
+})
 
-  const valor = parseFloat(partes[1]);
-  const categoria = partes.slice(2).join(" ");
+app.post("/api/gastos",(req,res)=>{
 
-  db.run(
-   "INSERT INTO gastos(valor,categoria,data) VALUES(?,?,?)",
-   [valor,categoria,new Date().toISOString()]
-  );
+const {descricao,valor} = req.body
 
-  msg.reply("✅ Gasto registrado");
+db.run(
+"INSERT INTO gastos(descricao,valor,data) VALUES(?,?,datetime('now'))",
+[descricao,valor],
+function(err){
 
+ if(err){
+  res.json({erro:err})
+ }else{
+  res.json({ok:true})
  }
 
-});
+})
 
-client.initialize();
+})
+
+const PORT = process.env.PORT || 3000
+
+app.listen(PORT,"0.0.0.0",()=>{
+ console.log("Servidor rodando na porta "+PORT)
+})
