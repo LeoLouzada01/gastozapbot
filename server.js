@@ -2,52 +2,63 @@ const express = require("express")
 const sqlite3 = require("sqlite3").verbose()
 
 const app = express()
+
+// PORTA DO RAILWAY
 const PORT = process.env.PORT || 8080
 
 app.use(express.json())
 
-// banco
-const db = new sqlite3.Database("gastos.db", (err) => {
+// BANCO
+const db = new sqlite3.Database("./gastos.db", (err) => {
   if (err) {
-    console.error("Erro banco:", err)
+    console.error("Erro ao conectar banco:", err)
   } else {
     console.log("Banco conectado")
   }
 })
 
-db.run(`
-CREATE TABLE IF NOT EXISTS gastos (
-id INTEGER PRIMARY KEY AUTOINCREMENT,
-descricao TEXT,
-valor REAL,
-data DATETIME DEFAULT CURRENT_TIMESTAMP
-)
-`)
+// CRIAR TABELA
+db.serialize(() => {
+  db.run(`
+    CREATE TABLE IF NOT EXISTS gastos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      descricao TEXT NOT NULL,
+      valor REAL NOT NULL,
+      data DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `)
+})
 
-// rota principal
+// ROTA PRINCIPAL
 app.get("/", (req, res) => {
-  res.send("🚀 GastoZap rodando no Railway")
+  res.send("🚀 GastoZap ONLINE")
 })
 
-// listar gastos
+// LISTAR GASTOS
 app.get("/gastos", (req, res) => {
-  db.all("SELECT * FROM gastos ORDER BY data DESC", (err, rows) => {
-    if (err) {
-      console.log(err)
-      return res.status(500).json({ erro: "Erro banco" })
+
+  db.all(
+    "SELECT * FROM gastos ORDER BY data DESC",
+    [],
+    (err, rows) => {
+
+      if (err) {
+        console.error(err)
+        return res.status(500).json({ erro: "Erro ao buscar gastos" })
+      }
+
+      res.json(rows)
     }
-    res.json(rows)
-  })
+  )
 })
 
-// adicionar gasto
+// ADICIONAR GASTO
 app.post("/gastos", (req, res) => {
 
-  const descricao = req.body.descricao
-  const valor = parseFloat(req.body.valor)
+  const { descricao, valor } = req.body
 
-  if (!descricao || isNaN(valor)) {
-    return res.json({ erro: "Dados inválidos" })
+  if (!descricao || !valor) {
+    return res.status(400).json({ erro: "Descricao e valor obrigatorios" })
   }
 
   db.run(
@@ -56,18 +67,21 @@ app.post("/gastos", (req, res) => {
     function (err) {
 
       if (err) {
-        console.log(err)
-        return res.status(500).json({ erro: "Erro ao salvar" })
+        console.error(err)
+        return res.status(500).json({ erro: "Erro ao inserir gasto" })
       }
 
       res.json({
         sucesso: true,
-        id: this.lastID
+        id: this.lastID,
+        descricao,
+        valor
       })
     }
   )
 })
 
+// INICIAR SERVIDOR
 app.listen(PORT, "0.0.0.0", () => {
-  console.log("Servidor rodando porta", PORT)
+  console.log(`Servidor rodando na porta ${PORT}`)
 })
